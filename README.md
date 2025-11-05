@@ -117,8 +117,6 @@ if len(ocr_result) > 0:
     cv2.imshow("Detección + OCR", frame)
 ```
 
-< añadir implementación, pero con Tesseract >
-
 ### Guardar datos en csv
 
 Para guardar los datos dentro de un csv, se ha hecho uso de la función del mismo nombre. Se pasa una lista de listas con los siguientes datos formando las columnas: 
