@@ -71,7 +71,7 @@ OUR_MODEL_PATH = 'best.pt'
 our_model = YOLO(OUR_MODEL_PATH)
 ```
 
-## Implementación conjunta (modelo pre-entrenado y el nuestro)
+### Implementación conjunta (modelo pre-entrenado y el nuestro)
 
 Para implementar la parte principal de la práctica: utilizar el modelo pre-entrenado de YOLO y el nuestro para detectar personas, coches y matrículas, se encuentra implementado en la siguiente parte del código:
 ```python
@@ -120,30 +120,36 @@ while vid.isOpened():
                     real_y2 = py2+y1
                     cv2.rectangle(annotated_frame, (real_x1, real_y1), (real_x2, real_y2), (0, 255, 0), 2)
                     plate_text = ocr_easy(plate, frame, real_x1, real_y1)
-                    plate_pattern = re.compile("^[0-9]{4}[BCDFGHJKLMNPRSTVWXYZ]{3}$")
-                    if plate_pattern.match(plate_text.strip()):
+                    plate_text = plate_text.strip()
+                    if plate_text is not None:
                         show_plate_text = plate_text
+            save_csv.append(["frame", name, conf, track_id, x1, y1, x2, y2, "plate", plate_conf, px1, py1, px2, py2, plate_text])
             if show_plate_text != last_plate:
                 font = cv2.FONT_HERSHEY_SIMPLEX
                 (text_width, text_height), baseline = cv2.getTextSize(plate_text, font, 0.8, 2)
                 text_x = (text_box_w - text_width) // 2
                 text_y = (text_box_h + text_height) // 2 - baseline
                 cv2.putText(annotated_frame, plate_text, (text_x, text_y), font, 0.8, (255, 255, 255), 2)
-                last_plate = show_plate_text
-
-            save_csv.append(["frame", name, conf, track_id, x1, y1, x2, y2, "plate", plate_conf, px1, py1, px2, py2, plate_text])
-        
+                last_plate = show_plate_text               
+            
         out.write(annotated_frame)
+    else:
+        # El vídeo ya se terminó
+        break
 ```
 Como se puede ver, procesamos cada frame del vídeo mediante OpenCV, le aplicamos el modelo base para detectar personas y vehículos, teniendo en cuenta incluir track() para que se realice el seguimiento y filtrar por clases para que solo detecte personas y vehículos que puedan contener matrículas, procesamos los resultados del modelo base para seguir al siguiente escalón, nuestro modelo entrenado para matrículas.
 
 Sin embargo, antes de pasarle el vehículo al modelo detector de matrículas, nos encargamos de realizar ciertos cálculos para extraer la "bounding box" del vehículo, el ID de la detección para su uso posterior en el conteo y otros datos para el CSV. Tras este proceso, comprobamos que se trata de un vehículo antes de llamar a nuestro modelo, y si lo es, le pasamos la "bounding box" que contiene al vehículo detectado para identificar su matrícula. Nuestro modelo nos devuelve una respuesta similar al modelo base, por lo que le realizamos cálculos similares para obtener la matrícula y los datos necesarios para el CSV y para dibujar la detección sobre el frame. 
 
+![Imagen del vídeo con la detección de personas, veículos y matrículas](./examples/detector.gif)
+
 Finalmente, esta matrícula pasa por la función de OCR correspondiente, ya sea la de easyOCR or la del VLM y, tras cierto "pre-processing" para facilitar la lectura, se obtiene el texto de la matrícula acorde a los modelos de OCR utilizados. 
 
 El último paso es guardar todos los datos recopilados en el archivo CSV y escribir el frame en el vídeo que se guardará en disco para su posterior visualización. 
 
-Con respecto a los añadidos, podemos ver algunas líneas que realizan ciertas funcionalidades extras como añadir un cajón de texto en la parte superior izquierda para mostrar la última matrícula detectada junto con una comprobación de *regular expression* para mostrar la matrícula solo si se adhiere al formato estándar de matrícula
+Con respecto a los añadidos, podemos ver algunas líneas que realizan ciertas funcionalidades extras como añadir un cajón de texto en la parte superior izquierda para mostrar la última matrícula en función de si se ha detectado una nueva o no.
+
+![Imagen del vídeo con recuadro arriba a la izquierda](./examples/recuadro.png)
 
 ### OCR
 
