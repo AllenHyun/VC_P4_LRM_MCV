@@ -195,7 +195,7 @@ if len(ocr_result) > 0:
 
 Puede pasar que el OCR genere matrículas donde solo detecta una letra. Para ello, se le ponen ciertas condiciones. Por un lado, que la matrícula debe tener como poco 4 caracteres. La probabilidad debe ser mayor al 50 % (0'5) y que el texto a analizar sea diferente al último guardado (por tratar de evitar guardar la misma matrículas varias veces por los diversos frames).
 
-Se obtiene el tiempo en segundos del frame que captó la matrícula y se imprime, indicando su confianza. Además, se ilustra encima del propio vídeo, colocando por el tiempo que permita la matrícula dentro del vídeo. Se sitúa, indica la fuente, el tamaño, el color, grosor.
+Se obtiene el tiempo en segundos del frame que captó la matrícula y se imprime, indicando su confianza. Además, se ilustra encima del propio vídeo, colocando por el tiempo que permita la matrícula dentro del vídeo. Se sitúa, indica la fuente, el tamaño, el color, grosor. Se devuelve el texto captado.
 
 ``` python
 if len(ocr_result) > 0:
@@ -208,8 +208,55 @@ if len(ocr_result) > 0:
             cv2.putText(frame, f'{text}', (x1, y1 - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2, cv2.LINE_AA)
 
-    cv2.imshow("Detección + OCR", frame)
+return text
 ```
+
+### SmolVLM
+
+En cuanto a modelos de lenguaje visual, se ha optado por usar SmolVLM. Lo primero es elegir el dispositivo que se usará para que el modelo se ejecute. En este caso, no se cuenta en ninguno de los ordenadores con una gpu (para ello se ha usado google colab, yendo más rápido), se usará una cpu, que es más lenta. Se descarga el procesador y se carga el modelo SmolVLM-Instruct. Luego, se pasa al dispositivo antes definido.
+
+``` python
+device = "cpu"  # or "cpu"
+
+processor = AutoProcessor.from_pretrained("HuggingFaceTB/SmolVLM-Instruct")
+model = AutoModelForImageTextToText.from_pretrained("HuggingFaceTB/SmolVLM-Instruct",
+                                                dtype=torch.bfloat16,
+                                                _attn_implementation="flash_attention_2" if device == "cuda" else "eager").to(device)
+```
+
+En la función para implementar SmolVLM, pasamos como parámetros el recorte realizado para ver la imagen de la matrícula, el frame y las coordenadas del rectángulo. El procesador Hugging Face espera imágenes de tipo Pil.Image en RGB, pero la imagen pasada en BGR (OpenCV). Por ello, se debe convertir a RGB.
+
+``` python
+plate_img = Image.fromarray(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB))
+```
+
+Se crea una lista de mensajes, como si se estuviera hablando con el modelo. Se procesa la entrada. Primero se convierte el mensaje al formato debido y se preparan los tensores. Estos serán enviados a la CPU debido a '.to(device)'.
+
+``` python
+generated_ids = model.generate(**inputs, max_new_tokens=10)
+generated_texts = processor.batch_decode(generated_ids, skip_special_tokens=True)
+```
+
+Como no se está entrenando (solo leyendo), se desactiva el cálculo de gradientes. Se lee la matrícula usando model.generate y se pone un límite al tamaño de la matrícula o a veces se pueden volver loco el modelo y devolver matrícula demasiado largas y que no encajan con una real. Los ids generados se convierten en texto que se pueda entender y se quitan espacios y tokens especiales.
+
+``` python
+with torch.no_grad():
+        generated_ids = model.generate(**inputs, max_new_tokens=10)
+        generated_texts = processor.batch_decode(generated_ids, skip_special_tokens=True)
+        plate_text = generated_texts[0].strip()
+```
+
+Se coge solo el texto que contiene la matrícula, puesto que sino, en pantalla aparecen líneas largas y no se aprecian las matrículas.
+
+```python
+if "Assistant: " in plate_text:
+            raw_text = plate_text.split("Assistant: ")[1]
+        else:
+            plate_text = raw_text
+```
+
+Por último, se dibuja un rectángulo verde encima de la matrícula y se escribe el texto guardado por encima para que pueda se apreciado por pantalla. Se devuelve la lectura, puesto que la matrícula debe ser guardada en el csv.
+
 
 ### Guardar datos en csv
 
