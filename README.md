@@ -434,7 +434,7 @@ f not results_ocr:
 
 #### Resultados
 
-La función devuelve que de 50 imágenes, SmolVLM acierta 43 y EasyOCR tan solo 15, por lo que SmolVLM es más preciso para reconocer las matrícula. EasyOCR falla porque añade matrículas con letras de más que saca de haberse confundido. Ambos modelos, viendo sus tiempos, son relativamente lentos, pero de la misma duración casi.
+La función devuelve que, de 50 imágenes, SmolVLM acierta 43 y EasyOCR tan solo 15, por lo que SmolVLM es más preciso para reconocer las matrícula. EasyOCR falla porque añade matrículas con letras de más que saca de haberse confundido. Ambos modelos, viendo sus tiempos, son relativamente lentos, pero de la misma duración casi.
 
 ``` 
 === COMPARATIVA DE MODELOS ===
