@@ -322,11 +322,11 @@ plate = result[0].boxes.xyxy.tolist()
 x1, y1, x2, y2 = [int(item) for item in plate[0]]
 ```
 
-Ahora solo queda calcular las métricas deseadas con los dos modelos (aprovechamos la implementación de ambos modelos que se encuentra en celdas anteriores):
+Ahora solo queda calcular las métricas deseadas con los dos modelos:
 ```python
 start = time.time()
 try:
-    text_vlm = ocr_vlm(plate, frame, x1, y1, x2, y2)
+    text_vlm = ocr_vlm_com(plate, frame, x1, y1, x2, y2)
 except Exception as e:
     text_vlm = ""
 time_vlm += time.time() - start
@@ -335,7 +335,7 @@ if text_vlm and text_vlm.strip().replace(" ", "").upper() == label:
 
 start = time.time()
 try:
-    text_easy = ocr_easy(frame, frame, x1, y1)
+    text_easy = ocr_easy_com(frame, frame, x1, y1)
 except Exception as e:
     print(f"[EasyOCR error on {img_name}]: {e}")
     text_easy = ""
@@ -356,3 +356,97 @@ print("\n=== TIEMPO MEDIO DE INFERENCIA ===")
 print(f"SmolVLM: {avg_time_vlm:.3f} s/img")
 print(f"EasyOCR: {avg_time_easy:.3f} s/img")
 ```
+
+#### Nuevas funciones para la comparativa
+
+##### SmolVLM
+
+Para poder elaborar la comparación, se han hecho versiones especiales para imágenes de las funciones ocr_easy y ocr_vlm. En primer lugar, se tiene ocr_vlm_com. A la función se le pasa la imagen completa, las coordenadas de interés,el procesador, el modelo, el dispositivo y el número máximos de tokers que se pueden genenar.
+
+Se comorueba como viene la imagen para dejarla en un formato apropiado. np.ndarray se convierte a PIL.Image y BGR a RGB. Se recorta la región que interesa, la matrícula.
+
+```pythom
+if isinstance(frame, np.ndarray):
+    frame = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+crop = frame.crop((x1, y1, x2, y2))
+```
+
+Se prepara el mensaje para el modelo, del tipo chat. Luego se convierte en un formato que el modelo entiende y se envían los tensores a GPU o CPU, depende del dispositivo.
+
+```python
+prompt = processor.apply_chat_template(messages, add_generation_prompt=True)
+inputs = processor(text=prompt, images=[crop], return_tensors="pt").to(device)
+```
+
+Se genera el texto a partir de la imagen y del prompt. Se convierten los IDs a texto fácil de entender. Como se devuelve "Assistant: [matrícula]", se elimina el prefijo que no interesa.
+
+```python
+text = vlm_output
+if "Assistant:" in text:
+    text = text.split("Assistant:")[-1]
+```
+
+Se divide el texto en partes y se eliminan los caracteres que sobren. Por último, se unen las letras y los números para formar lo que se buscaba.
+
+```python
+parts = text.split()
+plate_parts = [re.sub(r"[^A-Z0-9]", "", p.upper()) for p in parts if re.sub(r"[^A-Z0-9]", "", p.upper())]
+license_plate = "".join(plate_parts)
+return license_plate
+```
+##### EasyOCR
+
+En el caso de EasyOCR, la función recibe el frame, las coordenadas de la matrícula y la escala. Se extrae solo la región de interés y se aumenta el tamaño de la imagen con la escala, mejorando su calidad. 
+
+```python
+ placa_crop = frame[y1:y2, x1:x2]
+
+    placa_crop = cv2.resize(placa_crop, None, fx=escala, fy=escala, interpolation=cv2.INTER_CUBIC)
+```
+Se convierte cada imagen en una escala de grises, se ecualiza el histograma y se aumenta el contraste creado.
+
+``` python
+ gray = cv2.cvtColor(placa_crop, cv2.COLOR_BGR2GRAY)
+    gray = cv2.equalizeHist(gray)
+    gray = cv2.convertScaleAbs(gray, alpha=1.5, beta=0)
+```
+
+Para la detección del texto, solo se consideran letras mayúsculas y números. Devuelve información detallada y se guardan los elementos.
+
+```python
+results_ocr = reader.readtext(
+        gray,
+        allowlist='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+        detail=1
+    )
+```
+
+Si no detecta texto, devuelve la cadena vacía. Si hay texto, ordena lo fragmentos, elimina espacios y une todos los fragmentos.
+
+``` python
+f not results_ocr:
+        return ""
+
+    results_sorted = sorted(results_ocr, key=lambda r: r[0][0][0])  # r[0][0][0] = x top-left
+    plate_parts = [text.strip().upper() for (_, text, _) in results_sorted]
+    license_plate = "".join(plate_parts)
+```
+
+La función devuelve que de 50 imágenes, SmolVLM acierta 43 y EasyOCR tan solo 15, por lo que SmolVLM es más preciso para reconocer las matrícula. EasyOCR falla porque añade matrículas con letras de más que saca de haberse confundido. Ambos modelos, viendo sus tiempos, son relativamente lentos, pero de la misma duración casi.
+
+``` 
+=== COMPARATIVA DE MODELOS ===
+Número de imágenes probadas: 50
+SmolVLM (aciertos): 43 / 50 (86.00%)
+EasyOCR (aciertos): 15 / 50 (30.00%)
+
+=== TIEMPO MEDIO DE INFERENCIA ===
+SmolVLM: 3.981 s/img
+EasyOCR: 3.514 s/img
+```
+
+Solo un aviso, Kaggle al parecer a veces tiene problemas para descargar algunos paquetes. A veces iba en las pruebas, a veces no, por avisar.
+
+![Imagen demostrando que se ejecutó el proyecto](./examples/prueba.png)
+
+Acceso al notebook en kaggle -> https://www.kaggle.com/code/maracv/comparativa/edit 
