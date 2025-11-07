@@ -153,7 +153,7 @@ Con respecto a los añadidos, podemos ver algunas líneas que realizan ciertas f
 
 ### OCR
 
-Para leer el texto de las placas, uno de los modelos usados ha sido EasyOCR, un modelo de python para extraer texto de imágenes (en este caso, de los frames de un vídeo). Para poder analizar cómodamente el vídeo, se generan unas imágenes recortadas, obtenidas a partir de las coordenadas del bouding box.
+Para leer el texto de las placas, uno de los modelos usados ha sido EasyOCR, un modelo de python para extraer texto de imágenes (en este caso, de los frames de un vídeo). Para poder analizar cómodamente el vídeo, se generan unas imágenes recortadas, obtenidas a partir de las coordenadas del bounding box.
 
 ``` python
 x1m = max(0, x1 - margin)
