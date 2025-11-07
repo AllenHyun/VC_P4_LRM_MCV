@@ -295,3 +295,64 @@ columnas = [
 ```
 
 Se abre el archivo en modo escritura (resultado.csv) para poner añadir los nuevos datos. Se va escribiendo por filas, usando ';' como separador, esto debido a que Excel reconoce así la separación entre columnas. Se escriben los encabezados y luego los datos. Por último, se envía un mensaje avisando al usuario de que el archivo ya ha sido generado.
+
+### Comparativa de modelos
+
+Como última tarea, hicimos una pequeña comparativa utilizando parte del dataset de entrenamiento con los dos modelos de OCR con los que hemos decidido trabajar (EasyOCR, SmolVLM). Elegimos las imágenes de manera que se pudiesen hacer los cálculos lo más rápido posible, por lo que imágenes que no fueran del formato JPG o JPEG o que contuviesen más de una matrícula, se descartaron para los fines de este apartado. En total, nos quedamos con 50 imágenes con las que probar (también por tiempo de ejecución).
+
+En cuanto a la implementación, tendremos la parte de lectura de las imágenes que cumplan las condiciones mencionadas:
+```python
+image_files = [
+    f for f in os.listdir(PATH)
+    if f.lower().endswith((".jpg", ".jpeg"))
+]
+```
+Asimismo, nos aprovechamos de que los nombres de las imágenes contenían el texto de la matrícula que se encontraba en ellas (label):
+```python
+for img_name in tqdm(image_files, desc="Procesamiento de matrículas"):
+    img_path = os.path.join(PATH, img_name)
+    label = os.path.splitext(img_name)[0].upper()
+```
+
+Le pasamos la imagen a nuestro modelo detector de matrículas (evitamos usar el modelo general ya que se trata de un análisis no tan exhaustivo):
+```python
+OUR_MODEL_PATH = 'best.pt'
+result = our_model(frame, show=False)
+plate = result[0].boxes.xyxy.tolist()
+x1, y1, x2, y2 = [int(item) for item in plate[0]]
+```
+
+Ahora solo queda calcular las métricas deseadas con los dos modelos (aprovechamos la implementación de ambos modelos que se encuentra en celdas anteriores):
+```python
+start = time.time()
+try:
+    text_vlm = ocr_vlm(plate, frame, x1, y1, x2, y2)
+except Exception as e:
+    text_vlm = ""
+time_vlm += time.time() - start
+if text_vlm and text_vlm.strip().replace(" ", "").upper() == label:
+    correct_vlm += 1
+
+start = time.time()
+try:
+    text_easy = ocr_easy(frame, frame, x1, y1)
+except Exception as e:
+    print(f"[EasyOCR error on {img_name}]: {e}")
+    text_easy = ""
+time_easy += time.time() - start
+if text_easy and text_easy.strip().replace(" ", "").upper() == label:
+    correct_easy += 1
+```
+Para cada modelo se calcula el tiempo de inferencia (timepo que tarda en detectar el texto) y si el modelo acertó o no con respecto a la realidad.
+
+Finalmente, mostramos las métricas calculadas para poder tener una idea de cuál de los modelos obtiene mejores resultados.
+```python
+print("\n=== COMPARATIVA DE MODELOS ===")
+print(f"Número de imágenes probadas: {total}")
+print(f"SmolVLM (aciertos): {correct_vlm} / {total} ({correct_vlm / total:.2%})")
+print(f"EasyOCR (aciertos): {correct_easy} / {total} ({correct_easy / total:.2%})")
+
+print("\n=== TIEMPO MEDIO DE INFERENCIA ===")
+print(f"SmolVLM: {avg_time_vlm:.3f} s/img")
+print(f"EasyOCR: {avg_time_easy:.3f} s/img")
+```
