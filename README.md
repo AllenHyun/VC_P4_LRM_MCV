@@ -86,7 +86,7 @@ while vid.isOpened():
         boxes = list()
 
         # Mostramos un recuadro arriba a la izquierda que muestre las matrículas que se vayan detectando
-        text_box_w = int(frame.shape[1]*0.2)
+        text_box_w = int(frame.shape[1]*0.25)
         text_box_h = int(frame.shape[0]*0.09)
         
         cv2.rectangle(annotated_frame, (0, 0), (text_box_w, text_box_h), (0, 0, 0), -1)
@@ -126,11 +126,11 @@ while vid.isOpened():
             save_csv.append(["frame", name, conf, track_id, x1, y1, x2, y2, "plate", plate_conf, px1, py1, px2, py2, plate_text])
             if show_plate_text != last_plate:
                 font = cv2.FONT_HERSHEY_SIMPLEX
-                (text_width, text_height), baseline = cv2.getTextSize(plate_text, font, 0.8, 2)
+                (text_width, text_height), baseline = cv2.getTextSize(f"Matrícula detectada: {show_plate_text}", font, 0.8, 2)
                 text_x = (text_box_w - text_width) // 2
                 text_y = (text_box_h + text_height) // 2 - baseline
-                cv2.putText(annotated_frame, plate_text, (text_x, text_y), font, 0.8, (255, 255, 255), 2)
-                last_plate = show_plate_text               
+                cv2.putText(annotated_frame, show_plate_text, (text_x, text_y), font, 0.8, (255, 255, 255), 2)
+                last_plate = show_plate_text
             
         out.write(annotated_frame)
     else:
