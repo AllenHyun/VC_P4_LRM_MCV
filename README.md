@@ -432,6 +432,8 @@ f not results_ocr:
     license_plate = "".join(plate_parts)
 ```
 
+#### Resultados
+
 La función devuelve que de 50 imágenes, SmolVLM acierta 43 y EasyOCR tan solo 15, por lo que SmolVLM es más preciso para reconocer las matrícula. EasyOCR falla porque añade matrículas con letras de más que saca de haberse confundido. Ambos modelos, viendo sus tiempos, son relativamente lentos, pero de la misma duración casi.
 
 ``` 
@@ -445,7 +447,11 @@ SmolVLM: 3.981 s/img
 EasyOCR: 3.514 s/img
 ```
 
-Solo un aviso, Kaggle al parecer a veces tiene problemas para descargar algunos paquetes. A veces iba en las pruebas, a veces no, por avisar.
+En el notebook 'comparativa.ipynb' se muestra un ejemplo completo del código ejecutado.
+
+### AVISO
+
+Solo un aviso, Kaggle al parecer a veces tiene problemas para descargar algunos paquetes. A veces iba en las pruebas, a veces no, por avisar. En la carpeta 'examples' se demuestra la ejecución funcionando.
 
 ![Imagen demostrando que se ejecutó el proyecto](./examples/prueba.png)
 
